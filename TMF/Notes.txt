@@ -1,0 +1,68 @@
+Excel: sheet TB account balance per month
+Balances: view on top of the table, missing balance if there is no activity
+Transactions: raw transactions
+sp_MonthlyAccBces: stored procedure
+sp_MonthlyAccBcesMovement: stored procedure
+
+
+
+1. Accounts:
+				a.Hierarchy (ledger type, ledger account, account type, map1, map2, account )
+				b. Mapping1,2 (manual from excel, how to automate it)
+				c. Account name (Interest, Inerest, Intrerest)
+				
+2. Balances:
+				Balances from table, no record if not activity
+				In excel accounts starting with 710 has the trial balance, the rest has the balance
+	
+3. Transactions:
+				Match transaction amount with balances credit,debit
+				Transaction type: Journal voucher, Bank deposit, Sales Invoice...
+				Description: Interest, Interest correction, Contract closed...
+				
+				
+TB of each month: export of balances
+TB sum	of each account: sum from TB of each month				
+P&L Analysis: By Map1,Map2 from TB
+
+
+
+
+P&L (PROFIT AND LOSS) -> P&L Analysis -> TB
+BS(Balancesheet)      -> TB (Trial Balance)
+TB (Trial Balance)    -> TB <Month>
+
+
+TB: mapping1,2
+	programmatistika like group in [account_name2] field
+
+
+P&L Analysis: By Mapping1, Mapping2
+
+340004, 37001340: sto TB exi to Balance oxi to trial balance
+711340: exi to movement
+
+
+
+
+
+return earnings
+pnl
+
+
+gia ta account tou profit and loss vlepi apo tin arxi tis xronias
+an to range span across the years
+
+pln profit tis xronias
+
+
+
+sales/ladger
+
+
+
+P/L AND S/L kato apo to B/S
+
+
+
+STA P/L thelo mono to movement, oxi opening balanbce

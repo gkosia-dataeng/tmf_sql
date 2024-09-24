@@ -1,0 +1,171 @@
+CREATE VIEW PBI.REPORT_PL
+AS
+WITH accountBalances AS(
+	SELECT 
+		 a.mapping1
+		,a.mapping2
+		,b.DT
+		,SUM(b.Debits - b.Credits)  AS Movement
+	FROM [PBI].[Accounts] as a
+	INNER JOIN [PBI].[Balances] AS b
+	   ON a.AccountSeq = b.AccountSeq
+	GROUP BY a.mapping1
+		,a.mapping2
+		,b.DT
+), level2Info AS(
+	SELECT 
+		 Level0
+		,Level1	
+		,Level2	
+		,Ord	
+		,DT	
+		,Movement
+	FROM [PBI].[PLAnalysisStructure] AS s
+	LEFT JOIN accountBalances AS b
+	   ON s.level2 = b.mapping2
+	WHERE Level2 IS NOT NULL 
+), level1_operational_cost AS (
+SELECT 
+     b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+	,SUM(l.Movement) AS Movement
+FROM PBI.PLAnalysisStructure as b
+INNER JOIN level2Info AS l
+   ON l.level1 IN ('1. Income ', '2. Direct expenses')
+WHERE b.level1 = '3. Operating profit/(loss)'
+GROUP BY b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT
+), level0_fin_expenses AS(
+SELECT 
+	 b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+	,SUM(L.Movement) - SUM(CASE WHEN l.level2 in ('Interest expense', 'Foreign Exchange difference') then L.Movement ELSE 0 END) AS Movement
+FROM PBI.PLAnalysisStructure as b
+INNER JOIN level2Info AS l
+   ON  l.Level1 = '6. Financing expenses'
+    OR l.level2 in ('Exchange difference', 'Interest expense')
+WHERE b.level0 = '2. Total other expenses' and b.level1 = '6.  Financing expenses'
+GROUP BY b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT
+), level0_loan_interest AS (
+	SELECT 
+		 b.Level0
+		,b.Level1	
+		,b.Level2	
+		,b.Ord	
+		,l.DT	
+		,SUM(l.Movement) as Movement
+	FROM PBI.PLAnalysisStructure as b
+	INNER JOIN level2Info AS l
+	   ON l.level2 = 'Interest expense'
+	WHERE b.level0 ='4. Loan interest'
+	GROUP BY 		b.Level0
+		,b.Level1	
+		,b.Level2	
+		,b.Ord	
+		,l.DT
+), basicSet AS(
+	SELECT *
+	FROM level2Info
+	UNION ALL 
+	SELECT *
+	FROM level1_operational_cost
+	UNION ALL 
+	SELECT *
+	FROM level0_fin_expenses
+	UNION ALL 
+	SELECT *
+	FROM level0_loan_interest
+), basicSet_incl_ebita AS(
+SELECT 
+	 b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+	,SUM(l.Movement) as Movement
+FROM PBI.PLAnalysisStructure AS b
+INNER JOIN basicSet AS l
+   ON l.level0 in ('1. Profit/(loss) from operations', '2. Total other expenses')
+WHERE b.level0 ='3. EBITDA'
+group by b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+
+	UNION ALL 
+	SELECT * 
+	FROM basicSet
+), basicSet_incl_ebita_earnings AS (
+SELECT 
+	 b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+	,ABS(SUM(l.Movement)) as Movement
+FROM PBI.PLAnalysisStructure AS b
+INNER JOIN basicSet_incl_ebita AS l
+   ON l.level0 in ('3. EBITDA', '4. Loan interest')
+WHERE b.level0 = '5. EARNINGS after interest'
+group by b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+
+	UNION ALL 
+	SELECT *
+	FROM basicSet_incl_ebita
+), basicSet_incl_ebita_earnings_exchange AS(
+SELECT 
+	 b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+	,ABS(SUM(l.Movement)) as Movement
+FROM PBI.PLAnalysisStructure AS b
+INNER JOIN basicSet_incl_ebita_earnings AS l
+   ON l.level2 = 'Foreign Exchange difference'
+WHERE b.level0 = '6. Exchange difference'
+group by b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+
+UNION ALL 
+SELECT * FROM basicSet_incl_ebita_earnings
+)
+SELECT 
+	 b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+	,ABS(SUM(CASE WHEN l.level0 = '6. Exchange difference' THEN -1 * l.Movement ELSE l.Movement END)) as Movement
+FROM PBI.PLAnalysisStructure AS b
+INNER JOIN basicSet_incl_ebita_earnings_exchange AS l
+   ON l.level0 IN ('6. Exchange difference', '5. EARNINGS after interest')
+WHERE b.level0 = '7. Earnings after exchange difference'
+group by b.Level0
+	,b.Level1	
+	,b.Level2	
+	,b.Ord	
+	,l.DT	
+UNION ALL 
+SELECT * FROM basicSet_incl_ebita_earnings_exchange
